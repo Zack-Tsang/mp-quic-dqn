@@ -302,6 +302,7 @@ func ListenAndServeQUIC(addr, certFile, keyFile string, handler http.Handler) er
 			Addr:    addr,
 			Handler: handler,
 		},
+	  	QuicConfig: &quic.Config{CreatePaths:true},
 	}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }

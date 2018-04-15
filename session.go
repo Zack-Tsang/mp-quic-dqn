@@ -177,6 +177,10 @@ var newClientSession = func(
 	return s.setup(nil, hostname, tlsConf, negotiatedVersions, conn, pconnMgr)
 }
 
+func (s *session)GetPathManager() *pathManager{
+	return s.pathManager
+}
+
 func (s *session) setup(
 	scfg *handshake.ServerConfig,
 	hostname string,
@@ -539,7 +543,8 @@ func (s *session) handleFrames(fs []wire.Frame, p *path) error {
 				s.remoteRTTs[frame.PathIDs[i]] = frame.RemoteRTTs[i]
 				if frame.RemoteRTTs[i] >= 30 * time.Minute {
 					// Path is potentially failed
-					s.paths[frame.PathIDs[i]].potentiallyFailed.Set(true)
+					//s.paths[frame.PathIDs[i]].potentiallyFailed.Set(true)
+					utils.Infof("Core avoided path %d", frame.PathIDs[i])
 				}
 			}
 			s.pathsLock.RUnlock()

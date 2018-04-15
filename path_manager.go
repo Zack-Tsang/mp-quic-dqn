@@ -153,6 +153,8 @@ func (pm *pathManager) createPath(locAddr net.UDPAddr, remAddr net.UDPAddr) erro
 	if utils.Debug() {
 		utils.Debugf("Created path %x on %s to %s", pm.nxtPathID, locAddr.String(), remAddr.String())
 	}
+	utils.Infof("Created path %x on %s to %s", pm.nxtPathID, locAddr.String(), remAddr.String())
+
 	pm.nxtPathID += 2
 	// Send a PING frame to get latency info about the new path and informing the
 	// peer of its existence

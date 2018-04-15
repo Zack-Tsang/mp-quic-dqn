@@ -67,6 +67,8 @@ func main() {
 			}
 			elapsed := time.Since(start)
 			utils.Infof("%s", elapsed)
+			throughput := rsp.ContentLength / (elapsed.Nanoseconds() /1000000) * 8000 
+			utils.Infof("Avg. throughput: %d bps", throughput)
 			wg.Done()
 		}(addr)
 	}

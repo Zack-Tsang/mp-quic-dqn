@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/lucas-clemente/quic-go/ackhandler"
@@ -124,6 +125,29 @@ pathLoop:
 
 }
 
+func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	var currentPathIDs []protocol.PathID
+	for pathID, _ := range s.paths{
+		if pathID != protocol.InitialPathID{
+			currentPathIDs = append(currentPathIDs, pathID)
+			// if s.perspective == protocol.PerspectiveServer{
+			// 	if rand.Intn(10000) < 1 {
+			// 		utils.Infof("PAth %d, Cong. Windows: %d. RTT: %f", pathID,
+			// 			s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
+			// 			p.rttStats.SmoothedRTT())
+			// 	}
+			// }
+		}
+	}
+	if len(currentPathIDs) == 0{
+		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
+			return nil
+		}
+		return s.paths[protocol.InitialPathID]
+	}
+	return s.paths[currentPathIDs[rand.Intn(len(currentPathIDs))]]
+}
+
 func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Avoid using PathID 0 if there is more than 1 path
 	if len(s.paths) <= 1 {
@@ -138,6 +162,7 @@ func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, h
 		// Is there any other path with a lower number of packet sent?
 		currentQuota := sch.quotas[fromPth.pathID]
 		for pathID, pth := range s.paths {
+
 			if pathID == protocol.InitialPathID || pathID == fromPth.pathID {
 				continue
 			}
@@ -155,6 +180,18 @@ func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, h
 
 pathLoop:
 	for pathID, pth := range s.paths {
+
+		var currentPathIDs []protocol.PathID
+		if pathID != protocol.InitialPathID{
+			currentPathIDs = append(currentPathIDs, pathID)
+			if s.perspective == protocol.PerspectiveServer{
+				if rand.Intn(10000) < 1 {
+					utils.Infof("PAth %d, Cong. Windows: %d. RTT: %f", pathID,
+					s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
+					pth.rttStats.SmoothedRTT())
+					}
+				}
+			}
 		// Don't block path usage if we retransmit, even on another path
 		if !hasRetransmission && !pth.SendingAllowed() {
 			continue pathLoop
@@ -208,7 +245,8 @@ pathLoop:
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
 	// TODO select the right scheduler dynamically
-	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	// return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	return sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	// return sch.selectPathRoundRobin(s, hasRetransmission, hasStreamRetransmission, fromPth)
 }
 
@@ -242,6 +280,9 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 				// Last packet to send on the stream, print stats
 				s.pathsLock.RLock()
 				utils.Infof("Info for stream %x of %x", frame.StreamID, s.connectionID)
+				utils.Infof("info=estimatedGoodput,time=%.6f,streamid=%x",
+					time.Since(s.sessionCreationTime).Seconds(),
+					s.connectionID)
 				for pathID, pth := range s.paths {
 					sntPkts, sntRetrans, sntLost := pth.sentPacketHandler.GetStatistics()
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
