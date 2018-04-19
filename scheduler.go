@@ -127,19 +127,19 @@ pathLoop:
 
 func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	var currentPathIDs []protocol.PathID
-	for pathID, _ := range s.paths{
-		if pathID != protocol.InitialPathID{
+	for pathID, p := range s.paths {
+		if pathID != protocol.InitialPathID {
 			currentPathIDs = append(currentPathIDs, pathID)
-			// if s.perspective == protocol.PerspectiveServer{
-			// 	if rand.Intn(10000) < 1 {
-			// 		utils.Infof("PAth %d, Cong. Windows: %d. RTT: %f", pathID,
-			// 			s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
-			// 			p.rttStats.SmoothedRTT())
-			// 	}
-			// }
+			if s.perspective == protocol.PerspectiveServer {
+				if rand.Intn(10000) < 1 {
+					utils.Infof("Path %d, Cong. Windows: %d. RTT: %.3f", pathID,
+						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
+						p.rttStats.SmoothedRTT().Nanoseconds()/1000)
+				}
+			}
 		}
 	}
-	if len(currentPathIDs) == 0{
+	if len(currentPathIDs) == 0 {
 		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
 			return nil
 		}
@@ -182,16 +182,16 @@ pathLoop:
 	for pathID, pth := range s.paths {
 
 		var currentPathIDs []protocol.PathID
-		if pathID != protocol.InitialPathID{
+		if pathID != protocol.InitialPathID {
 			currentPathIDs = append(currentPathIDs, pathID)
-			if s.perspective == protocol.PerspectiveServer{
+			if s.perspective == protocol.PerspectiveServer {
 				if rand.Intn(10000) < 1 {
 					utils.Infof("PAth %d, Cong. Windows: %d. RTT: %f", pathID,
-					s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
-					pth.rttStats.SmoothedRTT())
-					}
+						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
+						pth.rttStats.SmoothedRTT())
 				}
 			}
+		}
 		// Don't block path usage if we retransmit, even on another path
 		if !hasRetransmission && !pth.SendingAllowed() {
 			continue pathLoop
