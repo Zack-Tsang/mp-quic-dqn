@@ -132,9 +132,9 @@ func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasSt
 			currentPathIDs = append(currentPathIDs, pathID)
 			if s.perspective == protocol.PerspectiveServer {
 				if rand.Intn(10000) < 1 {
-					utils.Infof("Path %d, Cong. Windows: %d. RTT: %.3f", pathID,
+					utils.Infof("Path %d, Cong. Windows: %d. RTT: %d", pathID,
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
-						p.rttStats.SmoothedRTT().Nanoseconds()/1000)
+						p.rttStats.SmoothedRTT().Round(time.Millisecond))
 				}
 			}
 		}
