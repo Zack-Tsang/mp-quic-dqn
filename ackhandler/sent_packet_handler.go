@@ -127,6 +127,10 @@ func (h *sentPacketHandler) ShouldSendRetransmittablePacket() bool {
 	return h.numNonRetransmittablePackets >= protocol.MaxNonRetransmittablePackets
 }
 
+func (h *sentPacketHandler) GetTrackedSentPackets() protocol.PacketNumber{
+	return protocol.PacketNumber(len(h.retransmissionQueue)+h.packetHistory.Len()+1)
+}
+
 func (h *sentPacketHandler) SentPacket(packet *Packet) error {
 	if packet.PacketNumber <= h.lastSentPacketNumber {
 		return errPacketNumberNotIncreasing
