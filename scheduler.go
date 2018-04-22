@@ -250,6 +250,31 @@ pathLoop:
 	return selectedPath
 }
 
+func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path{
+	// Only interested in server for our test setup
+	if s.perspective == protocol.PerspectiveClient{
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}
+	for pathID, pth := range s.paths{
+		// Skip initial path
+		if pathID == protocol.InitialPathID || pathID == fromPth.pathID {
+			continue
+		}
+		congWindow := s.GetPathManager().oliaSenders[pathID].GetCongestionWindow()
+		bytesInFlight := pth.sentPacketHandler.GetBytesInFlight()
+		nPackets, nRetrans, nLoss := pth.sentPacketHandler.GetStatistics()
+		sRTT := pth.rttStats.SmoothedRTT()
+		sRTTStdDev := pth.rttStats.MeanDeviation()
+		quota := sch.quotas[pathID]
+		RTO := pth.sentPacketHandler.GetRTO()
+	}
+	// lastPath?
+	// QUIC throughput
+	// Inter arrival ACK?
+
+	return nil
+}
+
 // Lock of s.paths must be held
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
@@ -260,7 +285,7 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	}else if sch.schedulerName == "DL" {
 		//TODO
-		return nil
+		return sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	}
 	// Default
 	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
