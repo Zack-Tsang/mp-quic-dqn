@@ -137,7 +137,10 @@ func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasSt
 				if rand.Intn(10000) < 1 {
 					utils.Infof("Path %d, Cong. Windows: %d. RTT: %d", pathID,
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
-						p.rttStats.SmoothedRTT().Round(time.Millisecond))
+						p.rttStats.SmoothedRTT().Round(time.Millisecond)/1000000)
+					utils.Infof("Tracked: %d, Max: %d",
+						p.sentPacketHandler.GetTrackedSentPackets(),
+						protocol.MaxTrackedSentPackets)
 				}
 			}
 		}

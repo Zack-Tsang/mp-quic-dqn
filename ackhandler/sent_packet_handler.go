@@ -127,13 +127,19 @@ func (h *sentPacketHandler) ShouldSendRetransmittablePacket() bool {
 	return h.numNonRetransmittablePackets >= protocol.MaxNonRetransmittablePackets
 }
 
+func (h *sentPacketHandler) GetTrackedSentPackets() protocol.PacketNumber{
+	return protocol.PacketNumber(len(h.retransmissionQueue)+h.packetHistory.Len()+1)
+}
+
 func (h *sentPacketHandler) SentPacket(packet *Packet) error {
 	if packet.PacketNumber <= h.lastSentPacketNumber {
 		return errPacketNumberNotIncreasing
 	}
 
 	if protocol.PacketNumber(len(h.retransmissionQueue)+h.packetHistory.Len()+1) > protocol.MaxTrackedSentPackets {
-		return ErrTooManyTrackedSentPackets
+		//return ErrTooManyTrackedSentPackets
+		// Do nothing
+		utils.Infof("Max tracked reached")
 	}
 
 	for p := h.lastSentPacketNumber + 1; p < packet.PacketNumber; p++ {
