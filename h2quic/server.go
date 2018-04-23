@@ -296,13 +296,13 @@ func (s *Server) SetQuicHeaders(hdr http.Header) error {
 // ListenAndServeQUIC listens on the UDP network address addr and calls the
 // handler for HTTP/2 requests on incoming connections. http.DefaultServeMux is
 // used when handler is nil.
-func ListenAndServeQUIC(addr, certFile, keyFile string, handler http.Handler) error {
+func ListenAndServeQUIC(addr, certFile, keyFile string, handler http.Handler, schedulerName string) error {
 	server := &Server{
 		Server: &http.Server{
 			Addr:    addr,
 			Handler: handler,
 		},
-	  	QuicConfig: &quic.Config{CreatePaths:true},
+	  	QuicConfig: &quic.Config{CreatePaths:true, SchedulerName:schedulerName},
 	}
 	return server.ListenAndServeTLS(certFile, keyFile)
 }

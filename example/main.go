@@ -121,6 +121,7 @@ func main() {
 	certPath := flag.String("certpath", getBuildDir(), "certificate directory")
 	www := flag.String("www", "/var/www", "www data")
 	tcp := flag.Bool("tcp", false, "also listen on TCP")
+	scheduler := flag.String("s", "","name of the scheduler (rtt, random, DL)")
 	flag.Parse()
 
 	if *verbose {
@@ -148,7 +149,7 @@ func main() {
 			if *tcp {
 				err = h2quic.ListenAndServe(bCap, certFile, keyFile, nil)
 			} else {
-				err = h2quic.ListenAndServeQUIC(bCap, certFile, keyFile, nil)
+				err = h2quic.ListenAndServeQUIC(bCap, certFile, keyFile, nil, *scheduler)
 			}
 			if err != nil {
 				fmt.Println(err)

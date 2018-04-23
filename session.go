@@ -213,7 +213,7 @@ func (s *session) setup(
 		s.config.IdleTimeout,
 	)
 
-	s.scheduler = &scheduler{}
+	s.scheduler = &scheduler{schedulerName:s.config.SchedulerName}
 	s.scheduler.setup()
 
 	if pconnMgr == nil && conn != nil {

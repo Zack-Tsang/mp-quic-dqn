@@ -13,6 +13,9 @@ import (
 type scheduler struct {
 	// XXX Currently round-robin based, inspired from MPTCP scheduler
 	quotas map[protocol.PathID]uint
+
+	// Scheduler name
+	schedulerName string
 }
 
 func (sch *scheduler) setup() {
@@ -148,7 +151,9 @@ func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasSt
 		}
 		return s.paths[protocol.InitialPathID]
 	}
-	return s.paths[currentPathIDs[rand.Intn(len(currentPathIDs))]]
+	pathID := rand.Intn(len(currentPathIDs))
+	utils.Debugf("Selecting path %d", pathID)
+	return s.paths[currentPathIDs[pathID]]
 }
 
 func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
@@ -192,6 +197,10 @@ pathLoop:
 					utils.Infof("PAth %d, Cong. Windows: %d. RTT: %f", pathID,
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
 						pth.rttStats.SmoothedRTT())
+				}
+			}else if s.perspective == protocol.PerspectiveClient{
+				if rand.Intn(10000) < 1{
+					utils.Infof("", 1)
 				}
 			}
 		}
@@ -244,12 +253,45 @@ pathLoop:
 	return selectedPath
 }
 
+func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path{
+	// Only interested in server for our test setup
+	if s.perspective == protocol.PerspectiveClient{
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}
+	for pathID, pth := range s.paths{
+		// Skip initial path
+		if pathID == protocol.InitialPathID || pathID == fromPth.pathID {
+			continue
+		}
+		congWindow := s.GetPathManager().oliaSenders[pathID].GetCongestionWindow()
+		bytesInFlight := pth.sentPacketHandler.GetBytesInFlight()
+		nPackets, nRetrans, nLoss := pth.sentPacketHandler.GetStatistics()
+		sRTT := pth.rttStats.SmoothedRTT()
+		sRTTStdDev := pth.rttStats.MeanDeviation()
+		quota := sch.quotas[pathID]
+		RTO := pth.sentPacketHandler.GetRTO()
+	}
+	// lastPath?
+	// QUIC throughput
+	// Inter arrival ACK?
+
+	return nil
+}
+
 // Lock of s.paths must be held
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
 	// TODO select the right scheduler dynamically
-	// return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
-	return sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	if sch.schedulerName == "random"{
+		return sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}else if sch.schedulerName == "rtt" {
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}else if sch.schedulerName == "DL" {
+		//TODO
+		return sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}
+	// Default
+	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	// return sch.selectPathRoundRobin(s, hasRetransmission, hasStreamRetransmission, fromPth)
 }
 

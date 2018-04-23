@@ -116,6 +116,14 @@ func (h *sentPacketHandler) GetStatistics() (uint64, uint64, uint64) {
 	return h.packets, h.retransmissions, h.losses
 }
 
+func (h *sentPacketHandler) GetBytesInFlight() protocol.ByteCount {
+	return h.bytesInFlight
+}
+
+func (h *sentPacketHandler) GetRTO() time.Duration{
+	return h.computeRTOTimeout()
+}
+
 func (h *sentPacketHandler) largestInOrderAcked() protocol.PacketNumber {
 	if f := h.packetHistory.Front(); f != nil {
 		return f.Value.PacketNumber - 1
