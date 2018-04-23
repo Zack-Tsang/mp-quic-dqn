@@ -137,9 +137,7 @@ func (h *sentPacketHandler) SentPacket(packet *Packet) error {
 	}
 
 	if protocol.PacketNumber(len(h.retransmissionQueue)+h.packetHistory.Len()+1) > protocol.MaxTrackedSentPackets {
-		//return ErrTooManyTrackedSentPackets
-		// Do nothing
-		utils.Infof("Max tracked reached")
+		return ErrTooManyTrackedSentPackets
 	}
 
 	for p := h.lastSentPacketNumber + 1; p < packet.PacketNumber; p++ {

@@ -129,9 +129,9 @@ func (s *streamFrameSorter) Push(frame *wire.StreamFrame) error {
 		}
 	}
 
-	//if s.gaps.Len() > protocol.MaxStreamFrameSorterGaps {
-	//	return errTooManyGapsInReceivedStreamData
-	//}
+	if s.gaps.Len() > protocol.MaxStreamFrameSorterGaps {
+		return errTooManyGapsInReceivedStreamData
+	}
 
 	if wasCut {
 		data := make([]byte, frame.DataLen())
