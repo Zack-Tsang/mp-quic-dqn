@@ -29,7 +29,11 @@ type SentPacketHandler interface {
 	DuplicatePacket(packet *Packet)
 
 	GetStatistics() (uint64, uint64, uint64)
+
 	GetTrackedSentPackets() protocol.PacketNumber
+
+	GetBytesInFlight() protocol.ByteCount
+	GetRTO() time.Duration
 }
 
 // ReceivedPacketHandler handles ACKs needed to send for incoming packets
