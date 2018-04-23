@@ -265,6 +265,10 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	if s.perspective == protocol.PerspectiveClient {
 		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	}
+	// Setup is not called for server
+	if sch.agent == nil{
+		sch.setup()
+	}
 	var pathStats []PathStats
 	for pathID, pth := range s.paths {
 		// Skip initial path
