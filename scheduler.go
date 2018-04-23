@@ -205,7 +205,7 @@ pathLoop:
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
 						pth.rttStats.SmoothedRTT())
 				}
-			} 
+			}
 		}
 		// Don't block path usage if we retransmit, even on another path
 		if !hasRetransmission && !pth.SendingAllowed() {
@@ -268,7 +268,7 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	var pathStats []PathStats
 	for pathID, pth := range s.paths {
 		// Skip initial path
-		if pathID == protocol.InitialPathID || pathID == fromPth.pathID {
+		if pathID == protocol.InitialPathID{ // Why?? || pathID == fromPth.pathID {
 			continue
 		}
 		nPackets, nRetrans, nLoss := pth.sentPacketHandler.GetStatistics()
