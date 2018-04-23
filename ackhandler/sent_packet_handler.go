@@ -120,7 +120,7 @@ func (h *sentPacketHandler) GetBytesInFlight() protocol.ByteCount {
 	return h.bytesInFlight
 }
 
-func (h *sentPacketHandler) GetRTO() time.Duration{
+func (h *sentPacketHandler) GetRTO() time.Duration {
 	return h.computeRTOTimeout()
 }
 
@@ -135,8 +135,8 @@ func (h *sentPacketHandler) ShouldSendRetransmittablePacket() bool {
 	return h.numNonRetransmittablePackets >= protocol.MaxNonRetransmittablePackets
 }
 
-func (h *sentPacketHandler) GetTrackedSentPackets() protocol.PacketNumber{
-	return protocol.PacketNumber(len(h.retransmissionQueue)+h.packetHistory.Len()+1)
+func (h *sentPacketHandler) GetTrackedSentPackets() protocol.PacketNumber {
+	return protocol.PacketNumber(len(h.retransmissionQueue) + h.packetHistory.Len() + 1)
 }
 
 func (h *sentPacketHandler) SentPacket(packet *Packet) error {

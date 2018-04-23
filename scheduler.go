@@ -16,10 +16,17 @@ type scheduler struct {
 
 	// Scheduler name
 	schedulerName string
+
+	// Agent
+	agent AgentScheduler
 }
 
 func (sch *scheduler) setup() {
 	sch.quotas = make(map[protocol.PathID]uint)
+	if sch.schedulerName == "DL" {
+		agent := DQNAgentScheduler{}
+		agent.Create()
+	}
 }
 
 func (sch *scheduler) getRetransmission(s *session) (hasRetransmission bool, retransmitPacket *ackhandler.Packet, pth *path) {
@@ -198,8 +205,8 @@ pathLoop:
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
 						pth.rttStats.SmoothedRTT())
 				}
-			}else if s.perspective == protocol.PerspectiveClient{
-				if rand.Intn(10000) < 1{
+			} else if s.perspective == protocol.PerspectiveClient {
+				if rand.Intn(10000) < 1 {
 					utils.Infof("", 1)
 				}
 			}
@@ -253,40 +260,51 @@ pathLoop:
 	return selectedPath
 }
 
-func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path{
+func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// Only interested in server for our test setup
-	if s.perspective == protocol.PerspectiveClient{
+	if s.perspective == protocol.PerspectiveClient {
 		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	}
-	for pathID, pth := range s.paths{
+	var pathStats []PathStats
+	for pathID, pth := range s.paths {
 		// Skip initial path
 		if pathID == protocol.InitialPathID || pathID == fromPth.pathID {
 			continue
 		}
-		congWindow := s.GetPathManager().oliaSenders[pathID].GetCongestionWindow()
-		bytesInFlight := pth.sentPacketHandler.GetBytesInFlight()
 		nPackets, nRetrans, nLoss := pth.sentPacketHandler.GetStatistics()
-		sRTT := pth.rttStats.SmoothedRTT()
-		sRTTStdDev := pth.rttStats.MeanDeviation()
-		quota := sch.quotas[pathID]
-		RTO := pth.sentPacketHandler.GetRTO()
+		pathStats = append(pathStats,
+			PathStats{
+				pathID:        pathID,
+				congWindow:    s.GetPathManager().oliaSenders[pathID].GetCongestionWindow(),
+				bytesInFlight: pth.sentPacketHandler.GetBytesInFlight(),
+				nPackets:      nPackets,
+				nRetrans:      nRetrans,
+				nLoss:         nLoss,
+				sRTT:          pth.rttStats.SmoothedRTT(),
+				sRTTStdDev:    pth.rttStats.MeanDeviation(),
+				quota:         sch.quotas[pathID],
+				rTO:           pth.sentPacketHandler.GetRTO(),
+			})
 	}
 	// lastPath?
 	// QUIC throughput
 	// Inter arrival ACK?
-
-	return nil
+	pathID, err := sch.agent.SelectPath(pathStats)
+	if err != nil {
+		panic(err)
+	}
+	return s.paths[pathID]
 }
 
 // Lock of s.paths must be held
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
 	// TODO select the right scheduler dynamically
-	if sch.schedulerName == "random"{
+	if sch.schedulerName == "random" {
 		return sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
-	}else if sch.schedulerName == "rtt" {
+	} else if sch.schedulerName == "rtt" {
 		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
-	}else if sch.schedulerName == "DL" {
+	} else if sch.schedulerName == "DL" {
 		//TODO
 		return sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	}
