@@ -293,6 +293,12 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	// lastPath?
 	// QUIC throughput
 	// Inter arrival ACK?
+
+	// Wait until UDP paths are open
+	if pathStats == nil {
+		return s.paths[protocol.InitialPathID]
+	}
+
 	pathID, err := sch.agent.SelectPath(pathStats)
 	if err != nil {
 		panic(err)
