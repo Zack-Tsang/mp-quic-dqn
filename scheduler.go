@@ -24,8 +24,8 @@ type scheduler struct {
 func (sch *scheduler) setup() {
 	sch.quotas = make(map[protocol.PathID]uint)
 	if sch.schedulerName == "DL" {
-		agent := DQNAgentScheduler{}
-		agent.Create()
+		sch.agent = &DQNAgentScheduler{}
+		sch.agent.Create()
 	}
 }
 
@@ -205,11 +205,7 @@ pathLoop:
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
 						pth.rttStats.SmoothedRTT())
 				}
-			} else if s.perspective == protocol.PerspectiveClient {
-				if rand.Intn(10000) < 1 {
-					utils.Infof("", 1)
-				}
-			}
+			} 
 		}
 		// Don't block path usage if we retransmit, even on another path
 		if !hasRetransmission && !pth.SendingAllowed() {
