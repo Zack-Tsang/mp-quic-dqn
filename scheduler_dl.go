@@ -92,7 +92,15 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	if utils.Debug() {
 		utils.Debugf("Input state: %s", state)
 	}
-	return protocol.PathID(d.agent.GetAction(state)), nil
+	outputPath := d.agent.GetAction(state)
+	if outputPath == 0{
+		utils.Debugf("Selected Path %d", firstPath.pathID)
+		return firstPath.pathID, nil
+	}else if outputPath == 1{
+		utils.Debugf("Selected Path %d", secondPath.pathID)
+		return secondPath.pathID, nil
+	}
+	return -1, errors.New("???")
 }
 
 func normalizeTimes(stat time.Duration) gorl.Output {
