@@ -72,13 +72,13 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	}
 	fretrans, floss := gorl.Output(0.), gorl.Output(0.)
 	if firstPath.nPackets != 0{
-		fretrans, floss = gorl.Output(firstPath.nRetrans / firstPath.nPackets),
-		gorl.Output(firstPath.nLoss / firstPath.nPackets)
+		fretrans, floss = gorl.Output(firstPath.nRetrans) / gorl.Output(firstPath.nPackets),
+		gorl.Output(firstPath.nLoss) / gorl.Output(firstPath.nPackets)
 	}
 	sretrans, sloss := gorl.Output(0.), gorl.Output(0.)
 	if secondPath.nPackets != 0{
-		sretrans, sloss = gorl.Output(secondPath.nRetrans / secondPath.nPackets),
-			gorl.Output(secondPath.nLoss / secondPath.nPackets)
+		sretrans, sloss = gorl.Output(secondPath.nRetrans) / gorl.Output(secondPath.nPackets),
+			gorl.Output(secondPath.nLoss) / gorl.Output(secondPath.nPackets)
 	}
 
 	state := gorl.Vector{
@@ -88,7 +88,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		normalizeTimes(firstPath.sRTT),
 		normalizeTimes(firstPath.sRTTStdDev),
 		normalizeTimes(firstPath.rTO),
-		gorl.Output((secondPath.congWindow - secondPath.bytesInFlight) / secondPath.congWindow),
+		gorl.Output(float32((secondPath.congWindow - secondPath.bytesInFlight)) / float32(secondPath.congWindow)),
 		sretrans,
 		sloss,
 		normalizeTimes(secondPath.sRTT),
@@ -112,5 +112,5 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 }
 
 func normalizeTimes(stat time.Duration) gorl.Output {
-	return gorl.Output(stat.Nanoseconds() / time.Second.Nanoseconds())
+	return gorl.Output(stat.Nanoseconds()) / gorl.Output(time.Second.Nanoseconds())
 }
