@@ -25,16 +25,40 @@ type PathStats struct {
 type AgentScheduler interface {
 	Create() error
 	SelectPath([]PathStats) (protocol.PathID, error)
+	OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool)
+	GetQUICThroughput(delta time.Duration) gorl.Output
 }
 
 type DQNAgentScheduler struct {
 	weightsFileName string
 	epsilon         float32
 	agent           gorl.Agent
+	packetHistory		map[protocol.ByteCount]protocol.ByteCount
+}
+
+func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool){
+	if _, ok := d.packetHistory[offset]; ok == false{
+		d.packetHistory[offset] = size
+	}
+	if done{
+		//d.CloseSession()
+	}
+}
+
+func (d *DQNAgentScheduler) GetQUICThroughput(delta time.Duration) gorl.Output{
+	var goodput gorl.Output
+	for _, value := range d.packetHistory{
+		goodput += gorl.Output(value)
+	}
+	//Clear history
+	d.packetHistory = make(map[protocol.ByteCount]protocol.ByteCount)
+	return goodput*gorl.Output(time.Second.Nanoseconds())/gorl.Output(delta.Nanoseconds())
 }
 
 func (d *DQNAgentScheduler) Create() error {
 	var myPolicy gorl.PolicySelector
+
+	d.packetHistory = make(map[protocol.ByteCount]protocol.ByteCount)
 
 	if d.epsilon != 0. {
 		myPolicy = &gorl.E_greedy{Epsilon: d.epsilon}
@@ -96,9 +120,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		normalizeTimes(secondPath.rTO),
 	}
 	if utils.Debug() {
-		utils.Debugf("Input state: %s", state)
-		utils.Debugf("Congestion window vs bytes in flight: %d, %d", firstPath.congWindow, firstPath.bytesInFlight)
-		utils.Debugf("SRTT: %x", firstPath.sRTT)
+		utils.Debugf("Input state: %v", state)
 	}
 	outputPath := d.agent.GetAction(state)
 	if outputPath == 0{
