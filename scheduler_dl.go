@@ -33,8 +33,9 @@ type DQNAgentScheduler struct {
 	weightsFileName string
 	epsilon         float32
 	agent           gorl.Agent
-	packetHistory		map[protocol.ByteCount]protocol.ByteCount
-	previusPacket		time.Time
+	packetHistory   map[protocol.ByteCount]protocol.ByteCount
+	previousPacket  time.Time
+	previousReward	gorl.Output
 }
 
 func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool){
@@ -90,7 +91,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		return stats[0].pathID, nil
 	}
 	if len(stats) != 2 {
-		return protocol.InitialPathID, errors.New("Only two paths supported")
+		return protocol.InitialPathID, errors.New("only two paths supported")
 	}
 	var firstPath, secondPath PathStats
 	if stats[0].pathID < stats[1].pathID {
@@ -110,13 +111,13 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	}
 
 	state := gorl.Vector{
-		gorl.Output(float32((firstPath.congWindow - firstPath.bytesInFlight)) / float32(firstPath.congWindow)),
+		gorl.Output(float32(firstPath.congWindow - firstPath.bytesInFlight) / float32(firstPath.congWindow)),
 		fretrans,
 		floss,
 		normalizeTimes(firstPath.sRTT),
 		normalizeTimes(firstPath.sRTTStdDev),
 		normalizeTimes(firstPath.rTO),
-		gorl.Output(float32((secondPath.congWindow - secondPath.bytesInFlight)) / float32(secondPath.congWindow)),
+		gorl.Output(float32(secondPath.congWindow - secondPath.bytesInFlight) / float32(secondPath.congWindow)),
 		sretrans,
 		sloss,
 		normalizeTimes(secondPath.sRTT),
@@ -126,14 +127,22 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	if utils.Debug() {
 		utils.Debugf("Input state: %v", state)
 	}
-	if d.previusPacket.IsZero(){
-		d.previusPacket = time.Now()
+	var reward gorl.Output
+	if d.previousPacket.IsZero(){
+		d.previousPacket = time.Now()
+		reward = gorl.Output(0.)
 	}else{
-		utils.Debugf("goodput: %f, delta: %d", d.GetQUICThroughput(time.Since(d.previusPacket)),
-			time.Since(d.previusPacket).Nanoseconds())
-		d.previusPacket = time.Now()
+		reward = d.GetQUICThroughput(time.Since(d.previousPacket))
+		utils.Debugf("goodput: %f, delta: %d", reward,
+			time.Since(d.previousPacket).Nanoseconds())
+
+		d.previousPacket = time.Now()
+		if reward != 0 {
+			reward =(reward - d.previousReward) / reward
+		}
 	}
 	outputPath := d.agent.GetAction(state)
+	d.saveOffline(state, outputPath, reward)
 	if outputPath == 0{
 		utils.Debugf("Selected Path %d", firstPath.pathID)
 		return firstPath.pathID, nil
