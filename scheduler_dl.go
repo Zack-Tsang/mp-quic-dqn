@@ -82,7 +82,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	}
 
 	state := gorl.Vector{
-		gorl.Output((firstPath.congWindow - firstPath.bytesInFlight) / firstPath.congWindow),
+		gorl.Output(float32((firstPath.congWindow - firstPath.bytesInFlight)) / float32(firstPath.congWindow)),
 		fretrans,
 		floss,
 		normalizeTimes(firstPath.sRTT),
