@@ -58,6 +58,7 @@ func (d *DQNAgentScheduler) GetQUICThroughput(delta time.Duration) gorl.Output{
 
 func (d *DQNAgentScheduler) Create() error {
 	var myPolicy gorl.PolicySelector
+	start :=time.Now()
 
 	d.packetHistory = make(map[protocol.ByteCount]protocol.ByteCount)
 
@@ -79,6 +80,8 @@ func (d *DQNAgentScheduler) Create() error {
 
 	d.agent.LoadWeights(d.weightsFileName)
 
+	elapsed := time.Since(start)
+	utils.Infof("Agent created in %d us", elapsed.Nanoseconds()/1000)
 	return nil
 }
 
