@@ -16,6 +16,7 @@ type scheduler struct {
 
 	// Scheduler name
 	schedulerName string
+	epsilon				float32
 
 	// Agent
 	agent AgentScheduler
@@ -24,7 +25,7 @@ type scheduler struct {
 func (sch *scheduler) setup() {
 	sch.quotas = make(map[protocol.PathID]uint)
 	if sch.schedulerName == "DL" {
-		sch.agent = &DQNAgentScheduler{}
+		sch.agent = &DQNAgentScheduler{epsilon:sch.epsilon}
 		sch.agent.Create()
 	}
 }
@@ -296,7 +297,6 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	}
 
 	pathID, err := sch.agent.SelectPath(pathStats)
-	utils.Infof("DL selects %d", pathID)
 	if err != nil {
 		panic(err)
 	}

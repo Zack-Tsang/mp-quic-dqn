@@ -127,6 +127,8 @@ type Config struct {
 	SchedulerName string
 	// Path of weight file
 	WeightFile string
+	//Epsilon
+	Epsilon		float32
 }
 
 // A Listener for incoming QUIC connections
