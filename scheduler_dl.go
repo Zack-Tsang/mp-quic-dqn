@@ -97,6 +97,8 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	}
 	if utils.Debug() {
 		utils.Debugf("Input state: %s", state)
+		utils.Debugf("Congestion window vs bytes in flight: %d, %d", firstPath.congWindow, firstPath.bytesInFlight)
+		utils.Debugf("SRTT: %x", firstPath.sRTT)
 	}
 	outputPath := d.agent.GetAction(state)
 	if outputPath == 0{
