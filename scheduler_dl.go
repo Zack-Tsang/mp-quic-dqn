@@ -53,7 +53,7 @@ func (d *DQNAgentScheduler) GetQUICThroughput(delta time.Duration) gorl.Output{
 	}
 	//Clear history
 	d.packetHistory = make(map[protocol.ByteCount]protocol.ByteCount)
-	return goodput*gorl.Output(time.Second.Nanoseconds())/gorl.Output(delta.Nanoseconds())
+	return goodput*gorl.Output(time.Second.Nanoseconds())/gorl.Output(delta.Nanoseconds())*8
 }
 
 func (d *DQNAgentScheduler) Create() error {
