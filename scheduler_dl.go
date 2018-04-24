@@ -34,6 +34,7 @@ type DQNAgentScheduler struct {
 	epsilon         float32
 	agent           gorl.Agent
 	packetHistory		map[protocol.ByteCount]protocol.ByteCount
+	previusPacket		time.Time
 }
 
 func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool){
@@ -121,6 +122,12 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	}
 	if utils.Debug() {
 		utils.Debugf("Input state: %v", state)
+	}
+	if d.previusPacket.IsZero(){
+		d.previusPacket = time.Now()
+	}else{
+		utils.Debugf("goodput: %d", d.GetQUICThroughput(time.Since(d.previusPacket)))
+		d.previusPacket = time.Now()
 	}
 	outputPath := d.agent.GetAction(state)
 	if outputPath == 0{
