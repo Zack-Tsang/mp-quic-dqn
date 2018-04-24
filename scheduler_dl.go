@@ -126,7 +126,8 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	if d.previusPacket.IsZero(){
 		d.previusPacket = time.Now()
 	}else{
-		utils.Debugf("goodput: %d", d.GetQUICThroughput(time.Since(d.previusPacket)))
+		utils.Debugf("goodput: %f, delta: %d", d.GetQUICThroughput(time.Since(d.previusPacket)),
+			time.Since(d.previusPacket).Nanoseconds())
 		d.previusPacket = time.Now()
 	}
 	outputPath := d.agent.GetAction(state)
