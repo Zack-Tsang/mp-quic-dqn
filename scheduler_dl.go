@@ -48,6 +48,12 @@ func (d *DQNAgentScheduler) Create() error {
 
 	d.agent = &gorl.DQNAgent{Policy: myPolicy, QModel: &myModel}
 
+	if d.weightsFileName == ""{
+		d.weightsFileName = "../data/blank_weights.h5f"
+	}
+
+	d.agent.LoadWeights(d.weightsFileName)
+
 	return nil
 }
 
