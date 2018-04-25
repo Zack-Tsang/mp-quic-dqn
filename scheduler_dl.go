@@ -6,6 +6,7 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"time"
+	"fmt"
 )
 
 type PathStats struct {
@@ -27,6 +28,7 @@ type AgentScheduler interface {
 	SelectPath([]PathStats) (protocol.PathID, error)
 	OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool)
 	GetQUICThroughput(delta time.Duration) gorl.Output
+	CloseSession(gooput time.Duration, id protocol.ConnectionID)
 }
 
 type DQNAgentScheduler struct {
@@ -38,7 +40,7 @@ type DQNAgentScheduler struct {
 	previousReward	gorl.Output
 }
 
-func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool){
+func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool, id protocol.ConnectionID){
 	if _, ok := d.packetHistory[offset]; ok == false{
 		d.packetHistory[offset] = size
 	}
@@ -127,12 +129,13 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	if utils.Debug() {
 		utils.Debugf("Input state: %v", state)
 	}
-	var reward gorl.Output
+	var rewardStr string
 	if d.previousPacket.IsZero(){
+		//First packet of the session
 		d.previousPacket = time.Now()
-		reward = gorl.Output(0.)
+		rewardStr = "START"
 	}else{
-		reward = d.GetQUICThroughput(time.Since(d.previousPacket))
+		reward := d.GetQUICThroughput(time.Since(d.previousPacket))
 		utils.Debugf("goodput: %f, delta: %d", reward,
 			time.Since(d.previousPacket).Nanoseconds())
 
@@ -140,9 +143,10 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		if reward != 0 {
 			reward =(reward - d.previousReward) / reward
 		}
+		rewardStr = fmt.Sprintf("%f", reward)
 	}
 	outputPath := d.agent.GetAction(state)
-	d.saveOffline(state, outputPath, reward)
+	d.saveOffline(state, outputPath, rewardStr)
 	if outputPath == 0{
 		utils.Debugf("Selected Path %d", firstPath.pathID)
 		return firstPath.pathID, nil
@@ -155,4 +159,16 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 
 func normalizeTimes(stat time.Duration) gorl.Output {
 	return gorl.Output(stat.Nanoseconds()) / gorl.Output(time.Second.Nanoseconds())
+}
+
+func (d *DQNAgentScheduler)saveOffline(state gorl.Vector, path int, reward string){
+
+}
+
+func (d *DQNAgentScheduler)CloseSession(goodput float64, id protocol.ConnectionID){
+	//Set to 0
+	d.previousPacket = time.Time{}
+
+	reward := goodput * 10 / maxTheoretical
+
 }
