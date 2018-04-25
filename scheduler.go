@@ -358,6 +358,7 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
 					utils.Infof("Path %x: sent %d retrans %d lost %d; rcv %d rtt %v", pathID, sntPkts, sntRetrans, sntLost, rcvPkts, pth.rttStats.SmoothedRTT())
 				}
+				s.scheduler.agent.CloseSession(time.Since(s.sessionCreationTime).Seconds(), s.connectionID)
 				s.pathsLock.RUnlock()
 			}
 		default:
