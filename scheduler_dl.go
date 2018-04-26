@@ -28,7 +28,7 @@ type AgentScheduler interface {
 	SelectPath([]PathStats) (protocol.PathID, error)
 	OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool)
 	GetQUICThroughput(delta time.Duration) gorl.Output
-	CloseSession(gooput time.Duration, id protocol.ConnectionID)
+	CloseSession(goodput float64, id protocol.ConnectionID)
 }
 
 type DQNAgentScheduler struct {
@@ -38,9 +38,10 @@ type DQNAgentScheduler struct {
 	packetHistory   map[protocol.ByteCount]protocol.ByteCount
 	previousPacket  time.Time
 	previousReward	gorl.Output
+	offlineWriter	  OfflineWriter
 }
 
-func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool, id protocol.ConnectionID){
+func (d *DQNAgentScheduler) OnSent(offset protocol.ByteCount, size protocol.ByteCount, done bool){
 	if _, ok := d.packetHistory[offset]; ok == false{
 		d.packetHistory[offset] = size
 	}
@@ -82,6 +83,9 @@ func (d *DQNAgentScheduler) Create() error {
 	}
 
 	d.agent.LoadWeights(d.weightsFileName)
+
+	d.offlineWriter = OfflineWriter{}
+	d.offlineWriter.Init()
 
 	elapsed := time.Since(start)
 	utils.Infof("Agent created in %d us", elapsed.Nanoseconds()/1000)
@@ -162,13 +166,15 @@ func normalizeTimes(stat time.Duration) gorl.Output {
 }
 
 func (d *DQNAgentScheduler)saveOffline(state gorl.Vector, path int, reward string){
-
+	d.offlineWriter.Append([]string{fmt.Sprint(state), string(path), reward})
 }
 
 func (d *DQNAgentScheduler)CloseSession(goodput float64, id protocol.ConnectionID){
 	//Set to 0
 	d.previousPacket = time.Time{}
 
-	reward := goodput * 10 / maxTheoretical
+	// RTT 0
+	reward := goodput * 10 / (float64(17.71069254) * 2)
 
+	d.offlineWriter.Close(fmt.Sprint(reward), string(id))
 }
