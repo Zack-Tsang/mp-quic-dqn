@@ -823,12 +823,15 @@ func (s *session) sendPing(pth *path) error {
 }
 
 func (s *session) logPacket(packet *packedPacket, pathID protocol.PathID) {
-	for _, frame := range packet.frames {
-		f, ok := frame.(*wire.StreamFrame)
-		if ok{
-			s.scheduler.agent.OnSent(f.Offset, f.DataLen(), f.FinBit)
+	if s.perspective == protocol.PerspectiveServer{
+		for _, frame := range packet.frames {
+			f, ok := frame.(*wire.StreamFrame)
+			if ok{
+				s.scheduler.agent.OnSent(f.Offset, f.DataLen(), f.FinBit)
+			}
 		}
 	}
+
 	if !utils.Debug() {
 		// We don't need to allocate the slices for calling the format functions
 		return
