@@ -73,8 +73,8 @@ func (d *DQNAgentScheduler) Create() error {
 		myPolicy = &gorl.ArgMax{}
 	}
 	myModel := gorl.DNN{}
-	myModel.AddLayer(&gorl.Dense{Size: 32, ActFunction: gorl.Relu})
-	myModel.AddLayer(&gorl.Dense{Size: 32, ActFunction: gorl.Relu})
+	myModel.AddLayer(&gorl.Dense{Size: 64, ActFunction: gorl.Relu})
+	myModel.AddLayer(&gorl.Dense{Size: 64, ActFunction: gorl.Relu})
 	myModel.AddLayer(&gorl.Dense{Size: 2, ActFunction: gorl.Linear})
 
 	d.agent = &gorl.DQNAgent{Policy: myPolicy, QModel: &myModel}
@@ -130,13 +130,13 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		fretrans,
 		floss,
 		normalizeTimes(firstPath.sRTT),
-		normalizeTimes(firstPath.sRTTStdDev),
+		//normalizeTimes(firstPath.sRTTStdDev),
 		normalizeTimes(firstPath.rTO),
 		sCongWindows,
 		sretrans,
 		sloss,
 		normalizeTimes(secondPath.sRTT),
-		normalizeTimes(secondPath.sRTTStdDev),
+		//normalizeTimes(secondPath.sRTTStdDev),
 		normalizeTimes(secondPath.rTO),
 	}
 	if utils.Debug() {
@@ -179,7 +179,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 }
 
 func normalizeTimes(stat time.Duration) gorl.Output {
-	return gorl.Output(stat.Nanoseconds()) / gorl.Output(time.Millisecond.Nanoseconds()*250)
+	return gorl.Output(stat.Nanoseconds()) / gorl.Output(time.Millisecond.Nanoseconds()*50)
 }
 
 func (d *DQNAgentScheduler)saveOffline(state gorl.Vector, path int, reward string){
