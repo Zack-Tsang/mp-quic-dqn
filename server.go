@@ -207,6 +207,7 @@ func populateServerConfig(config *Config) *Config {
 		MaxReceiveConnectionFlowControlWindow: maxReceiveConnectionFlowControlWindow,
 		SchedulerName:                         config.SchedulerName,
 		Epsilon:															 config.Epsilon,
+		WeightFile:														 config.WeightFile,
 	}
 }
 
