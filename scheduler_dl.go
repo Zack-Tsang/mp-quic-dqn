@@ -117,14 +117,21 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 			gorl.Output(secondPath.nLoss) / gorl.Output(secondPath.nPackets)
 	}
 
+	fCongWindows := gorl.Output(float32(firstPath.congWindow - firstPath.bytesInFlight) / float32(firstPath.congWindow))
+	sCongWindows := gorl.Output(float32(secondPath.congWindow - secondPath.bytesInFlight) / float32(secondPath.congWindow))
+	if fCongWindows > 1 || sCongWindows > 1{
+		utils.Infof("Overflow: %f, %f, %f, %f", firstPath.congWindow,
+			firstPath.bytesInFlight, secondPath.congWindow, secondPath.bytesInFlight)
+	}
+
 	state := gorl.Vector{
-		gorl.Output(float32(firstPath.congWindow - firstPath.bytesInFlight) / float32(firstPath.congWindow)),
+		fCongWindows,
 		fretrans,
 		floss,
 		normalizeTimes(firstPath.sRTT),
 		normalizeTimes(firstPath.sRTTStdDev),
 		normalizeTimes(firstPath.rTO),
-		gorl.Output(float32(secondPath.congWindow - secondPath.bytesInFlight) / float32(secondPath.congWindow)),
+		sCongWindows,
 		sretrans,
 		sloss,
 		normalizeTimes(secondPath.sRTT),
