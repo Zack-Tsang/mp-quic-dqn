@@ -319,6 +319,7 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 		//TODO
 		return sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	}
+	utils.Infof("Delay: %d ns", sch.sDelay.Nanoseconds())
 	if sch.sDelay.Nanoseconds() == 0{
 		sch.sDelay = time.Since(now)
 		utils.Infof("Delay: %d ns", sch.sDelay.Nanoseconds())
