@@ -202,8 +202,8 @@ pathLoop:
 		if pathID != protocol.InitialPathID {
 			currentPathIDs = append(currentPathIDs, pathID)
 			if s.perspective == protocol.PerspectiveServer {
-				if rand.Intn(10000) < 1 {
-					utils.Infof("PAth %d, Cong. Windows: %d. RTT: %f", pathID,
+				if rand.Intn(100000) < 1 {
+					utils.Infof("Path %d, Cong. Windows: %x. RTT: %f", pathID,
 						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
 						pth.rttStats.SmoothedRTT())
 				}
@@ -359,7 +359,9 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
 					utils.Infof("Path %x: sent %d retrans %d lost %d; rcv %d rtt %v", pathID, sntPkts, sntRetrans, sntLost, rcvPkts, pth.rttStats.SmoothedRTT())
 				}
-				s.scheduler.agent.CloseSession(time.Since(s.sessionCreationTime).Seconds(), s.connectionID)
+				if s.scheduler.schedulerName == "DL" {
+					s.scheduler.agent.CloseSession(time.Since(s.sessionCreationTime).Seconds(), s.connectionID)
+				}
 				s.pathsLock.RUnlock()
 			}
 		default:
