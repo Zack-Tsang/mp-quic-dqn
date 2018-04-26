@@ -166,7 +166,7 @@ func normalizeTimes(stat time.Duration) gorl.Output {
 }
 
 func (d *DQNAgentScheduler)saveOffline(state gorl.Vector, path int, reward string){
-	d.offlineWriter.Append([]string{fmt.Sprint(state), string(path), reward})
+	d.offlineWriter.Append([]string{fmt.Sprint(state), fmt.Sprint(path), reward})
 }
 
 func (d *DQNAgentScheduler)CloseSession(goodput float64, id protocol.ConnectionID){
@@ -176,5 +176,5 @@ func (d *DQNAgentScheduler)CloseSession(goodput float64, id protocol.ConnectionI
 	// RTT 0
 	reward := goodput * 10 / (float64(17.71069254) * 2)
 
-	d.offlineWriter.Close(fmt.Sprint(reward), string(id))
+	d.offlineWriter.Close(fmt.Sprint(reward), fmt.Sprint(id))
 }
