@@ -156,7 +156,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		var reward gorl.Output
 		if goodput != 0 {
 			if d.previousGoodput != 0 {
-				reward = (goodput - d.previousGoodput) / goodput
+				reward = (goodput - d.previousGoodput) / goodput / 10000
 			}
 			d.previousGoodput = goodput
 		}
