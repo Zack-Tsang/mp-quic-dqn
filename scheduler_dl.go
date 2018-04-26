@@ -57,7 +57,10 @@ func (d *DQNAgentScheduler) GetQUICThroughput(delta time.Duration) gorl.Output{
 	}
 	//Clear history
 	d.packetHistory = make(map[protocol.ByteCount]protocol.ByteCount)
-	return goodput*gorl.Output(time.Second.Nanoseconds())/gorl.Output(delta.Nanoseconds())*8
+	utils.Infof("Raw goodput", goodput)
+	rGoodput :=goodput*gorl.Output(time.Second.Nanoseconds())/gorl.Output(delta.Nanoseconds())*8
+	utils.Infof("Calc goodput", rGoodput)
+	return rGoodput
 }
 
 func (d *DQNAgentScheduler) Create() error {
@@ -145,9 +148,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 
 		d.previousPacket = time.Now()
 		if reward != 0 {
-			utils.Infof("IN-Reward: %f", reward)
 			reward = (reward - d.previousReward) / reward
-			utils.Infof("OUT-Reward: %f", reward)
 			d.previousReward = reward
 		}
 		rewardStr = fmt.Sprintf("%f", reward)
