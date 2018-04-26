@@ -823,7 +823,7 @@ func (s *session) sendPing(pth *path) error {
 }
 
 func (s *session) logPacket(packet *packedPacket, pathID protocol.PathID) {
-	if s.perspective == protocol.PerspectiveServer{
+	if s.perspective == protocol.PerspectiveServer && s.scheduler.schedulerName=="DL"{
 		for _, frame := range packet.frames {
 			f, ok := frame.(*wire.StreamFrame)
 			if ok{
