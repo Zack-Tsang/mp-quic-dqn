@@ -179,7 +179,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 }
 
 func normalizeTimes(stat time.Duration) gorl.Output {
-	return gorl.Output(stat.Nanoseconds()) / gorl.Output(time.Second.Nanoseconds())
+	return gorl.Output(stat.Nanoseconds()) / gorl.Output(time.Millisecond.Nanoseconds()*250)
 }
 
 func (d *DQNAgentScheduler)saveOffline(state gorl.Vector, path int, reward string){
@@ -191,7 +191,7 @@ func (d *DQNAgentScheduler)CloseSession(goodput float64, id protocol.ConnectionI
 	d.previousPacket = time.Time{}
 
 	// RTT 0
-	reward := goodput * 10 / (float64(1.797479285) * 2)
+	reward := goodput * 100 / (float64(1.797479285) * 2)
 	now := time.Now()
 	d.offlineWriter.Close(fmt.Sprint(reward), fmt.Sprint(id))
 	utils.Infof("File closed in %s seconds", time.Since(now).Seconds())
