@@ -50,4 +50,6 @@ func (o *OfflineWriter) Close(finalReward string, id string){
 		}
 	}
 	o.buffer = [][]string{}
+
+	writer.Flush()
 }
