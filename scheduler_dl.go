@@ -107,16 +107,16 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	} else {
 		firstPath, secondPath = stats[1], stats[0]
 	}
-	//fretrans, floss := gorl.Output(0.), gorl.Output(0.)
-	//if firstPath.nPackets != 0{
-	//	fretrans, floss = gorl.Output(firstPath.nRetrans) / gorl.Output(firstPath.nPackets),
-	//	gorl.Output(firstPath.nLoss) / gorl.Output(firstPath.nPackets)
-	//}
-	//sretrans, sloss := gorl.Output(0.), gorl.Output(0.)
-	//if secondPath.nPackets != 0{
-	//	sretrans, sloss = gorl.Output(secondPath.nRetrans) / gorl.Output(secondPath.nPackets),
-	//		gorl.Output(secondPath.nLoss) / gorl.Output(secondPath.nPackets)
-	//}
+	fretrans, floss := gorl.Output(0.), gorl.Output(0.)
+	if firstPath.nPackets != 0{
+		fretrans, floss = gorl.Output(firstPath.nRetrans) / gorl.Output(firstPath.nPackets),
+		gorl.Output(firstPath.nLoss) / gorl.Output(firstPath.nPackets)
+	}
+	sretrans, sloss := gorl.Output(0.), gorl.Output(0.)
+	if secondPath.nPackets != 0{
+		sretrans, sloss = gorl.Output(secondPath.nRetrans) / gorl.Output(secondPath.nPackets),
+			gorl.Output(secondPath.nLoss) / gorl.Output(secondPath.nPackets)
+	}
 
 	fCongWindows := gorl.Output((float32(firstPath.congWindow) - float32(firstPath.bytesInFlight)) / float32(firstPath.congWindow))
 	sCongWindows := gorl.Output((float32(secondPath.congWindow) - float32(secondPath.bytesInFlight)) / float32(secondPath.congWindow))
@@ -126,18 +126,18 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 	}
 
 	state := gorl.Vector{
-		//fCongWindows,
-		//fretrans,
-		//floss,
+		fCongWindows,
+		fretrans,
+		floss,
 		normalizeTimes(firstPath.sRTT),
 		//normalizeTimes(firstPath.sRTTStdDev),
-		//normalizeTimes(firstPath.rTO),
-		//sCongWindows,
-		//sretrans,
-		//sloss,
+		normalizeTimes(firstPath.rTO),
+		sCongWindows,
+		sretrans,
+		sloss,
 		normalizeTimes(secondPath.sRTT),
 		//normalizeTimes(secondPath.sRTTStdDev),
-		//normalizeTimes(secondPath.rTO),
+		normalizeTimes(secondPath.rTO),
 	}
 	if utils.Debug() {
 		utils.Debugf("Input state: %v", state)
