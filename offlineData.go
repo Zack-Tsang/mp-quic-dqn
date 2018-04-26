@@ -24,6 +24,8 @@ func (o *OfflineWriter) Close(finalReward string, id string){
 	o.Append([]string{finalReward, lastState, "END"})
 	fileName := fmt.Sprintf("../data/episode_%s.csv", id)
 
+	utils.Infof("writing %d lines to offline file", len(o.buffer))
+
 	file, err := os.Create(fileName)
 	if err != nil {
 		utils.Errorf("error creating %s", fileName)
