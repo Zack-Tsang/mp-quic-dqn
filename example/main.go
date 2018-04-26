@@ -123,6 +123,7 @@ func main() {
 	tcp := flag.Bool("tcp", false, "also listen on TCP")
 	scheduler := flag.String("s", "", "name of the scheduler (rtt, random, DL)")
 	training := flag.Float64("t", 0., "Epsilon value (activates training)")
+	wFile := flag.String("weights", "", "file with the weights")
 	flag.Parse()
 
 	if *verbose {
@@ -150,7 +151,7 @@ func main() {
 			if *tcp {
 				err = h2quic.ListenAndServe(bCap, certFile, keyFile, nil)
 			} else {
-				err = h2quic.ListenAndServeQUIC(bCap, certFile, keyFile, nil, *scheduler, float32(*training))
+				err = h2quic.ListenAndServeQUIC(bCap, certFile, keyFile, nil, *scheduler, float32(*training), *wFile)
 			}
 			if err != nil {
 				fmt.Println(err)

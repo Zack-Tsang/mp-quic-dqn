@@ -17,6 +17,7 @@ type scheduler struct {
 	// Scheduler name
 	schedulerName string
 	epsilon				float32
+	weightsFile		string
 
 	// Agent
 	agent AgentScheduler
@@ -25,7 +26,7 @@ type scheduler struct {
 func (sch *scheduler) setup() {
 	sch.quotas = make(map[protocol.PathID]uint)
 	if sch.schedulerName == "DL" {
-		sch.agent = &DQNAgentScheduler{epsilon:sch.epsilon}
+		sch.agent = &DQNAgentScheduler{epsilon:sch.epsilon, weightsFileName:sch.weightsFile}
 		sch.agent.Create()
 	}
 }

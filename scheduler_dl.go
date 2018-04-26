@@ -83,6 +83,7 @@ func (d *DQNAgentScheduler) Create() error {
 		d.weightsFileName = "../data/blank_weights.h5f"
 	}
 
+	utils.Infof("Loading %s file", d.weightsFileName)
 	d.agent.LoadWeights(d.weightsFileName)
 
 	d.offlineWriter = OfflineWriter{}

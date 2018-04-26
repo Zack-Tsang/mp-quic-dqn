@@ -213,7 +213,7 @@ func (s *session) setup(
 		s.config.IdleTimeout,
 	)
 
-	s.scheduler = &scheduler{schedulerName: s.config.SchedulerName, epsilon: s.config.Epsilon}
+	s.scheduler = &scheduler{schedulerName: s.config.SchedulerName, epsilon: s.config.Epsilon, weightsFile:s.config.WeightFile}
 	s.scheduler.setup()
 
 	if pconnMgr == nil && conn != nil {
