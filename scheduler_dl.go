@@ -73,8 +73,8 @@ func (d *DQNAgentScheduler) Create() error {
 		myPolicy = &gorl.ArgMax{}
 	}
 	myModel := gorl.DNN{}
-	myModel.AddLayer(&gorl.Dense{Size: 16, ActFunction: gorl.Relu})
-	myModel.AddLayer(&gorl.Dense{Size: 16, ActFunction: gorl.Relu})
+	myModel.AddLayer(&gorl.Dense{Size: 32, ActFunction: gorl.Relu})
+	myModel.AddLayer(&gorl.Dense{Size: 32, ActFunction: gorl.Relu})
 	myModel.AddLayer(&gorl.Dense{Size: 2, ActFunction: gorl.Linear})
 
 	d.agent = &gorl.DQNAgent{Policy: myPolicy, QModel: &myModel}
