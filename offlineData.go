@@ -20,6 +20,8 @@ func (o *OfflineWriter) Append(row []string){
 }
 
 func (o *OfflineWriter) Close(finalReward string, id string){
+	lastState := o.buffer[len(o.buffer)-1][1]
+	o.Append([]string{finalReward, lastState, "END"})
 	fileName := fmt.Sprintf("../data/episode_%s.csv", id)
 
 	file, err := os.Create(fileName)
