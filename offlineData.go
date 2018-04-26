@@ -9,6 +9,7 @@ import (
 
 type OfflineWriter struct{
 	buffer [][]string
+	lastClosed string
 }
 
 func (o *OfflineWriter) Init(){
@@ -20,6 +21,9 @@ func (o *OfflineWriter) Append(row []string){
 }
 
 func (o *OfflineWriter) Close(finalReward string, id string){
+	if o.lastClosed == id{
+		return
+	}
 	lastState := o.buffer[len(o.buffer)-1][1]
 	o.Append([]string{finalReward, lastState, "END"})
 	fileName := fmt.Sprintf("../data/episode_%s.csv", id)
