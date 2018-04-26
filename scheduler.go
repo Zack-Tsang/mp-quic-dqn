@@ -322,7 +322,7 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 	if sch.sDelay == 0{
 		sch.sDelay = time.Since(now)
 	}else{
-		sch.sDelay = time.Duration(float64(0.875) * sch.sDelay.Seconds() + float64(0.125) * time.Since(now).Seconds())
+		sch.sDelay = time.Duration(float64(0.875) * float64(sch.sDelay.Nanoseconds()) + float64(0.125) * float64(time.Since(now).Nanoseconds()))
 	}
 	// Default
 	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
@@ -362,7 +362,7 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 				utils.Infof("info=estimatedGoodput,time=%.6f,streamid=%x",
 					time.Since(s.sessionCreationTime).Seconds(),
 					s.connectionID)
-				utils.Infof("Estimated delay %f", sch.sDelay.Seconds())
+				utils.Infof("Estimated delay %f us", sch.sDelay.Nanoseconds()/1000)
 				for pathID, pth := range s.paths {
 					sntPkts, sntRetrans, sntLost := pth.sentPacketHandler.GetStatistics()
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
