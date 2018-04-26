@@ -301,7 +301,7 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	}
 
 	pathID, err := sch.agent.SelectPath(pathStats)
-	
+
 	if err != nil {
 		panic(err)
 	}
@@ -316,6 +316,8 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 		pth := sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
 		if sch.sDelay == 0{
 			sch.sDelay = time.Since(now)
+		}else{
+			sch.sDelay = sch.sDelay * 7 / 8 + time.Since(now) / 8
 		}
 		return pth
 	} else if sch.schedulerName == "rtt" {
