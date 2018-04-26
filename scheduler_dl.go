@@ -147,6 +147,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		if reward != 0 {
 			reward =(reward - d.previousReward) / reward
 		}
+		d.previousReward = reward
 		rewardStr = fmt.Sprintf("%f", reward)
 	}
 	outputPath := d.agent.GetAction(state)
