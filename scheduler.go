@@ -143,7 +143,7 @@ pathLoop:
 func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	var currentPathIDs []protocol.PathID
 	for pathID, p := range s.paths {
-		if pathID != protocol.InitialPathID {
+		if pathID != protocol.InitialPathID && (p.SendingAllowed() || hasRetransmission){
 			currentPathIDs = append(currentPathIDs, pathID)
 			if s.perspective == protocol.PerspectiveServer {
 				if rand.Intn(10000) < 1 {
@@ -272,8 +272,8 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	}
 	var pathStats []PathStats
 	for pathID, pth := range s.paths {
-		// Skip initial path
-		if pathID == protocol.InitialPathID{ // Why?? || pathID == fromPth.pathID {
+		// Skip initial path and not allowed ones
+		if pathID == protocol.InitialPathID || (!pth.SendingAllowed() && !hasRetransmission){
 			continue
 		}
 		nPackets, nRetrans, nLoss := pth.sentPacketHandler.GetStatistics()
