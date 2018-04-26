@@ -321,8 +321,6 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 	}
 	if sch.sDelay == 0{
 		sch.sDelay = time.Since(now)
-	}else{
-		sch.sDelay = time.Duration(float64(0.875) * float64(sch.sDelay.Nanoseconds()) + float64(0.125) * float64(time.Since(now).Nanoseconds()))
 	}
 	// Default
 	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
