@@ -37,7 +37,7 @@ type DQNAgentScheduler struct {
 	agent           gorl.Agent
 	packetHistory   map[protocol.ByteCount]protocol.ByteCount
 	previousPacket  time.Time
-	previousReward	gorl.Output
+	previousGoodput	gorl.Output
 	offlineWriter	  OfflineWriter
 }
 
@@ -148,15 +148,19 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		d.previousPacket = time.Now()
 		rewardStr = "START"
 	}else{
-		reward := d.GetQUICThroughput(time.Since(d.previousPacket))
-		utils.Debugf("goodput: %f, delta: %d", reward,
+		goodput := d.GetQUICThroughput(time.Since(d.previousPacket))
+		utils.Debugf("goodput: %f, delta: %d", goodput,
 			time.Since(d.previousPacket).Nanoseconds())
 
 		d.previousPacket = time.Now()
-		if reward != 0 && d.previousReward != 0{
-			reward = (reward - d.previousReward) / reward
-			d.previousReward = reward
+		var reward gorl.Output
+		if goodput != 0 {
+			if d.previousGoodput != 0 {
+				reward = (goodput - d.previousGoodput) / goodput
+			}
+			d.previousGoodput = goodput
 		}
+
 		rewardStr = fmt.Sprintf("%f", reward)
 	}
 	outputPath := d.agent.GetAction(state)
