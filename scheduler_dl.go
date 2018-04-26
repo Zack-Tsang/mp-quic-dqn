@@ -185,6 +185,7 @@ func (d *DQNAgentScheduler)CloseSession(goodput float64, id protocol.ConnectionI
 
 	// RTT 0
 	reward := goodput * 10 / (float64(17.71069254) * 2)
-
+	now := time.Now()
 	d.offlineWriter.Close(fmt.Sprint(reward), fmt.Sprint(id))
+	utils.Infof("File closed in %s seconds", time.Since(now).Seconds())
 }
