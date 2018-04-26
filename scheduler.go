@@ -312,17 +312,20 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 	// XXX Currently round-robin
 	now := time.Now()
 	if sch.schedulerName == "random" {
-		return sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
+		pth := sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
+		if sch.sDelay == 0{
+			sch.sDelay = time.Since(now)
+		}
+		return pth
 	} else if sch.schedulerName == "rtt" {
 		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	} else if sch.schedulerName == "DL" {
 		//TODO
-		return sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
-	}
-	utils.Infof("Delay: %d ns", sch.sDelay.Nanoseconds())
-	if sch.sDelay.Nanoseconds() == 0{
-		sch.sDelay = time.Since(now)
-		utils.Infof("Delay: %d ns", sch.sDelay.Nanoseconds())
+		pth := sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
+		if sch.sDelay == 0{
+			sch.sDelay = time.Since(now)
+		}
+		return pth
 	}
 	// Default
 	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
