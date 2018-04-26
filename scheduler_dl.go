@@ -143,12 +143,13 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		utils.Debugf("Input state: %v", state)
 	}
 	var rewardStr string
+	var goodput gorl.Output
 	if d.previousPacket.IsZero(){
 		//First packet of the session
 		d.previousPacket = time.Now()
 		rewardStr = "START"
 	}else{
-		goodput := d.GetQUICThroughput(time.Since(d.previousPacket))
+		goodput = d.GetQUICThroughput(time.Since(d.previousPacket))
 		utils.Debugf("goodput: %f, delta: %d", goodput,
 			time.Since(d.previousPacket).Nanoseconds())
 
@@ -164,7 +165,9 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		rewardStr = fmt.Sprintf("%f", reward)
 	}
 	outputPath := d.agent.GetAction(state)
-	d.saveOffline(state, outputPath, rewardStr)
+	if goodput != 0 {
+		d.saveOffline(state, outputPath, rewardStr)
+	}
 	if outputPath == 0{
 		utils.Debugf("Selected Path %d", firstPath.pathID)
 		return firstPath.pathID, nil
