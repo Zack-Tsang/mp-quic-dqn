@@ -301,6 +301,8 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 	}
 
 	pathID, err := sch.agent.SelectPath(pathStats)
+	pathIDint := rand.Intn(len(pathStats))
+	pathID = pathStats[pathIDint].pathID
 	if err != nil {
 		panic(err)
 	}
