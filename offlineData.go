@@ -27,7 +27,6 @@ func (o *OfflineWriter) Close(finalReward string, id string){
 	o.lastClosed = id
 
 	lastState := o.buffer[len(o.buffer)-1][1]
-	utils.Infof("Final state %s", lastState)
 	o.Append([]string{finalReward, lastState, "END"})
 
 	fileName := fmt.Sprintf("../data/episode_%s.csv", id)

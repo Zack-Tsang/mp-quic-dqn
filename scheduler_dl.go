@@ -149,6 +149,9 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 			d.previousReward = reward
 		}
 		rewardStr = fmt.Sprintf("%f", reward)
+		if reward != 0{
+			utils.Infof("Reward: %f, str: %s", reward, rewardStr)
+		}
 	}
 	outputPath := d.agent.GetAction(state)
 	d.saveOffline(state, outputPath, rewardStr)
