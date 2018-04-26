@@ -823,6 +823,12 @@ func (s *session) sendPing(pth *path) error {
 }
 
 func (s *session) logPacket(packet *packedPacket, pathID protocol.PathID) {
+	for _, frame := range packet.frames {
+		f, ok := frame.(*wire.StreamFrame)
+		if ok{
+			s.scheduler.agent.OnSent(f.Offset, f.DataLen(), f.FinBit)
+		}
+	}
 	if !utils.Debug() {
 		// We don't need to allocate the slices for calling the format functions
 		return
@@ -830,10 +836,6 @@ func (s *session) logPacket(packet *packedPacket, pathID protocol.PathID) {
 	utils.Debugf("-> Sending packet 0x%x (%d bytes) for connection %x on path %x, %s", packet.number, len(packet.raw), s.connectionID, pathID, packet.encryptionLevel)
 	for _, frame := range packet.frames {
 		wire.LogFrame(frame, true)
-		f, ok := frame.(*wire.StreamFrame)
-		if ok{
-			s.scheduler.agent.OnSent(f.Offset, f.DataLen(), f.FinBit)
-		}
 	}
 }
 

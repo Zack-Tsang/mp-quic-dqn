@@ -57,9 +57,7 @@ func (d *DQNAgentScheduler) GetQUICThroughput(delta time.Duration) gorl.Output{
 	}
 	//Clear history
 	d.packetHistory = make(map[protocol.ByteCount]protocol.ByteCount)
-	utils.Infof("Raw goodput", goodput)
 	rGoodput :=goodput*gorl.Output(time.Second.Nanoseconds())/gorl.Output(delta.Nanoseconds())*8
-	utils.Infof("Calc goodput", rGoodput)
 	return rGoodput
 }
 
