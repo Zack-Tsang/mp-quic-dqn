@@ -21,6 +21,9 @@ type scheduler struct {
 
 	// Agent
 	agent AgentScheduler
+
+	//sDelay
+	sDelay		time.Duration
 }
 
 func (sch *scheduler) setup() {
@@ -307,7 +310,7 @@ func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool,
 // Lock of s.paths must be held
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
-	// TODO select the right scheduler dynamically
+	now := time.Now()
 	if sch.schedulerName == "random" {
 		return sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	} else if sch.schedulerName == "rtt" {
@@ -315,6 +318,11 @@ func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRe
 	} else if sch.schedulerName == "DL" {
 		//TODO
 		return sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}
+	if sch.sDelay == 0{
+		sch.sDelay = time.Since(now)
+	}else{
+		sch.sDelay = time.Duration(float64(0.875) * sch.sDelay.Seconds() + float64(0.125) * time.Since(now).Seconds())
 	}
 	// Default
 	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
@@ -354,6 +362,7 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 				utils.Infof("info=estimatedGoodput,time=%.6f,streamid=%x",
 					time.Since(s.sessionCreationTime).Seconds(),
 					s.connectionID)
+				utils.Infof("Estimated delay %f", sch.sDelay.Seconds())
 				for pathID, pth := range s.paths {
 					sntPkts, sntRetrans, sntLost := pth.sentPacketHandler.GetStatistics()
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
