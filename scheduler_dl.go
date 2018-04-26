@@ -165,7 +165,7 @@ func (d *DQNAgentScheduler) SelectPath(stats []PathStats) (protocol.PathID, erro
 		rewardStr = fmt.Sprintf("%f", reward)
 	}
 	outputPath := d.agent.GetAction(state)
-	if goodput != 0 {
+	if goodput != 0 || rewardStr == "START"{
 		d.saveOffline(state, outputPath, rewardStr)
 	}
 	if outputPath == 0{
