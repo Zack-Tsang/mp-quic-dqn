@@ -58,9 +58,9 @@ type session struct {
 	version      protocol.VersionNumber
 	config       *Config
 
-	paths        map[protocol.PathID]*path
-	closedPaths  map[protocol.PathID]bool
-	pathsLock    sync.RWMutex
+	paths       map[protocol.PathID]*path
+	closedPaths map[protocol.PathID]bool
+	pathsLock   sync.RWMutex
 
 	createPaths bool
 
@@ -71,7 +71,7 @@ type session struct {
 	remoteRTTs         map[protocol.PathID]time.Duration
 	lastPathsFrameSent time.Time
 
-	streamFramer          *streamFramer
+	streamFramer *streamFramer
 
 	flowControlManager flowcontrol.FlowControlManager
 
@@ -113,7 +113,7 @@ type session struct {
 	sessionCreationTime     time.Time
 	lastNetworkActivityTime time.Time
 
-	timer           *utils.Timer
+	timer *utils.Timer
 	// keepAlivePingSent stores whether a Ping frame was sent to the peer or not
 	// it is reset as soon as we receive a packet from the peer
 	keepAlivePingSent bool
@@ -123,7 +123,7 @@ type session struct {
 	pathManager         *pathManager
 	pathManagerLaunched bool
 
-	scheduler           *scheduler
+	scheduler *scheduler
 }
 
 var _ Session = &session{}
@@ -177,6 +177,10 @@ var newClientSession = func(
 	return s.setup(nil, hostname, tlsConf, negotiatedVersions, conn, pconnMgr)
 }
 
+func (s *session) GetPathManager() *pathManager {
+	return s.pathManager
+}
+
 func (s *session) setup(
 	scfg *handshake.ServerConfig,
 	hostname string,
@@ -209,7 +213,7 @@ func (s *session) setup(
 		s.config.IdleTimeout,
 	)
 
-	s.scheduler = &scheduler{}
+	s.scheduler = &scheduler{schedulerName: s.config.SchedulerName, epsilon: s.config.Epsilon, weightsFile:s.config.WeightFile}
 	s.scheduler.setup()
 
 	if pconnMgr == nil && conn != nil {
@@ -424,7 +428,7 @@ runLoop:
 		}
 
 		// Check if we should send a PATHS frame (currently hardcoded at 200 ms) only when at least one stream is open (not counting streams 1 and 3 never closed...)
-		if s.handshakeComplete && s.version >= protocol.VersionMP && now.Sub(s.lastPathsFrameSent) >= 200 * time.Millisecond && len(s.streamsMap.openStreams) > 2 {
+		if s.handshakeComplete && s.version >= protocol.VersionMP && now.Sub(s.lastPathsFrameSent) >= 200*time.Millisecond && len(s.streamsMap.openStreams) > 2 {
 			s.schedulePathsFrame()
 		}
 
@@ -487,7 +491,7 @@ func (s *session) handlePacketImpl(p *receivedPacket) error {
 	s.keepAlivePingSent = false
 
 	var pth *path
-	var ok  bool
+	var ok bool
 	var err error
 
 	pth, ok = s.paths[p.publicHeader.PathID]
@@ -537,9 +541,10 @@ func (s *session) handleFrames(fs []wire.Frame, p *path) error {
 			s.pathsLock.RLock()
 			for i := 0; i < int(frame.NumPaths); i++ {
 				s.remoteRTTs[frame.PathIDs[i]] = frame.RemoteRTTs[i]
-				if frame.RemoteRTTs[i] >= 30 * time.Minute {
+				if frame.RemoteRTTs[i] >= 30*time.Minute {
 					// Path is potentially failed
-					s.paths[frame.PathIDs[i]].potentiallyFailed.Set(true)
+					//s.paths[frame.PathIDs[i]].potentiallyFailed.Set(true)
+					utils.Infof("Core avoided path %d", frame.PathIDs[i])
 				}
 			}
 			s.pathsLock.RUnlock()
@@ -698,7 +703,7 @@ func (s *session) closePaths() {
 		s.pathsLock.RLock()
 		for _, pth := range s.paths {
 			select {
-			case pth.closeChan<-nil:
+			case pth.closeChan <- nil:
 			default:
 				// Don't block
 			}
@@ -786,7 +791,7 @@ func (s *session) sendPackedPacket(packet *packedPacket, pth *path) error {
 	if err != nil {
 		return err
 	}
-	pth.sentPacket<-struct{}{}
+	pth.sentPacket <- struct{}{}
 
 	s.logPacket(packet, pth.pathID)
 	return pth.conn.Write(packet.raw)
@@ -818,6 +823,15 @@ func (s *session) sendPing(pth *path) error {
 }
 
 func (s *session) logPacket(packet *packedPacket, pathID protocol.PathID) {
+	if s.perspective == protocol.PerspectiveServer && s.scheduler.schedulerName=="DL"{
+		for _, frame := range packet.frames {
+			f, ok := frame.(*wire.StreamFrame)
+			if ok{
+				s.scheduler.agent.OnSent(f.Offset, f.DataLen(), f.FinBit)
+			}
+		}
+	}
+
 	if !utils.Debug() {
 		// We don't need to allocate the slices for calling the format functions
 		return

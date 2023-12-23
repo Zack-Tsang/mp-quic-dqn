@@ -1,6 +1,7 @@
 package quic
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/lucas-clemente/quic-go/ackhandler"
@@ -12,10 +13,25 @@ import (
 type scheduler struct {
 	// XXX Currently round-robin based, inspired from MPTCP scheduler
 	quotas map[protocol.PathID]uint
+
+	// Scheduler name
+	schedulerName string
+	epsilon				float32
+	weightsFile		string
+
+	// Agent
+	agent AgentScheduler
+
+	//sDelay
+	sDelay		time.Duration
 }
 
 func (sch *scheduler) setup() {
 	sch.quotas = make(map[protocol.PathID]uint)
+	if sch.schedulerName == "DL" {
+		sch.agent = &DQNAgentScheduler{epsilon:sch.epsilon, weightsFileName:sch.weightsFile}
+		sch.agent.Create()
+	}
 }
 
 func (sch *scheduler) getRetransmission(s *session) (hasRetransmission bool, retransmitPacket *ackhandler.Packet, pth *path) {
@@ -124,6 +140,34 @@ pathLoop:
 
 }
 
+func (sch *scheduler) selectRandomPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	var currentPathIDs []protocol.PathID
+	for pathID, p := range s.paths {
+		if pathID != protocol.InitialPathID && (p.SendingAllowed() || hasRetransmission){
+			currentPathIDs = append(currentPathIDs, pathID)
+			if s.perspective == protocol.PerspectiveServer {
+				if rand.Intn(10000) < 1 {
+					utils.Infof("Path %d, Cong. Windows: %d. RTT: %d", pathID,
+						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
+						p.rttStats.SmoothedRTT().Round(time.Millisecond)/1000000)
+					utils.Infof("Tracked: %d, Max: %d",
+						p.sentPacketHandler.GetTrackedSentPackets(),
+						protocol.MaxTrackedSentPackets)
+				}
+			}
+		}
+	}
+	if len(currentPathIDs) == 0 {
+		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
+			return nil
+		}
+		return s.paths[protocol.InitialPathID]
+	}
+	pathID := rand.Intn(len(currentPathIDs))
+	utils.Debugf("Selecting path %d", pathID)
+	return s.paths[currentPathIDs[pathID]]
+}
+
 func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Avoid using PathID 0 if there is more than 1 path
 	if len(s.paths) <= 1 {
@@ -138,6 +182,7 @@ func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, h
 		// Is there any other path with a lower number of packet sent?
 		currentQuota := sch.quotas[fromPth.pathID]
 		for pathID, pth := range s.paths {
+
 			if pathID == protocol.InitialPathID || pathID == fromPth.pathID {
 				continue
 			}
@@ -155,6 +200,18 @@ func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, h
 
 pathLoop:
 	for pathID, pth := range s.paths {
+
+		var currentPathIDs []protocol.PathID
+		if pathID != protocol.InitialPathID {
+			currentPathIDs = append(currentPathIDs, pathID)
+			if s.perspective == protocol.PerspectiveServer {
+				if rand.Intn(100000) < 1 {
+					utils.Infof("Path %d, Cong. Windows: %x. RTT: %f", pathID,
+						s.pathManager.oliaSenders[pathID].GetCongestionWindow(),
+						pth.rttStats.SmoothedRTT())
+				}
+			}
+		}
 		// Don't block path usage if we retransmit, even on another path
 		if !hasRetransmission && !pth.SendingAllowed() {
 			continue pathLoop
@@ -204,10 +261,76 @@ pathLoop:
 	return selectedPath
 }
 
+func (sch *scheduler) selectPathDeepLearning(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	// Only interested in server for our test setup
+	if s.perspective == protocol.PerspectiveClient {
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}
+	// Setup is not called for server
+	if sch.agent == nil{
+		sch.setup()
+	}
+	var pathStats []PathStats
+	for pathID, pth := range s.paths {
+		// Skip initial path and not allowed ones
+		if pathID == protocol.InitialPathID || (!pth.SendingAllowed() && !hasRetransmission){
+			continue
+		}
+		nPackets, nRetrans, nLoss := pth.sentPacketHandler.GetStatistics()
+		pathStats = append(pathStats,
+			PathStats{
+				pathID:        pathID,
+				congWindow:    s.GetPathManager().oliaSenders[pathID].GetCongestionWindow(),
+				bytesInFlight: pth.sentPacketHandler.GetBytesInFlight(),
+				nPackets:      nPackets,
+				nRetrans:      nRetrans,
+				nLoss:         nLoss,
+				sRTT:          pth.rttStats.SmoothedRTT(),
+				sRTTStdDev:    pth.rttStats.MeanDeviation(),
+				quota:         sch.quotas[pathID],
+				rTO:           pth.sentPacketHandler.GetRTO(),
+			})
+	}
+	// lastPath?
+	// QUIC throughput
+	// Inter arrival ACK?
+
+	// Wait until UDP paths are open
+	if pathStats == nil {
+		return s.paths[protocol.InitialPathID]
+	}
+
+	pathID, err := sch.agent.SelectPath(pathStats)
+
+	if err != nil {
+		panic(err)
+	}
+	return s.paths[pathID]
+}
+
 // Lock of s.paths must be held
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
-	// TODO select the right scheduler dynamically
+	now := time.Now()
+	if sch.schedulerName == "random" {
+		pth := sch.selectRandomPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
+		if sch.sDelay == 0{
+			sch.sDelay = time.Since(now)
+		}else{
+			sch.sDelay = sch.sDelay * 7 / 8 + time.Since(now) / 8
+		}
+		return pth
+	} else if sch.schedulerName == "rtt" {
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	} else if sch.schedulerName == "DL" {
+		//TODO
+		pth := sch.selectPathDeepLearning(s, hasRetransmission, hasStreamRetransmission, fromPth)
+		if sch.sDelay == 0{
+			sch.sDelay = time.Since(now)
+		}
+		return pth
+	}
+	// Default
 	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
 	// return sch.selectPathRoundRobin(s, hasRetransmission, hasStreamRetransmission, fromPth)
 }
@@ -242,10 +365,17 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 				// Last packet to send on the stream, print stats
 				s.pathsLock.RLock()
 				utils.Infof("Info for stream %x of %x", frame.StreamID, s.connectionID)
+				utils.Infof("info=estimatedGoodput,time=%.6f,streamid=%x",
+					time.Since(s.sessionCreationTime).Seconds(),
+					s.connectionID)
+				utils.Infof("Estimated delay %d us", sch.sDelay.Nanoseconds()/1000)
 				for pathID, pth := range s.paths {
 					sntPkts, sntRetrans, sntLost := pth.sentPacketHandler.GetStatistics()
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
 					utils.Infof("Path %x: sent %d retrans %d lost %d; rcv %d rtt %v", pathID, sntPkts, sntRetrans, sntLost, rcvPkts, pth.rttStats.SmoothedRTT())
+				}
+				if s.scheduler.schedulerName == "DL" {
+					s.scheduler.agent.CloseSession(time.Since(s.sessionCreationTime).Seconds(), s.connectionID)
 				}
 				s.pathsLock.RUnlock()
 			}

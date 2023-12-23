@@ -123,6 +123,12 @@ type Config struct {
 	CacheHandshake bool
 	// Should the host try to create new paths, if possible?
 	CreatePaths bool
+	// Name of the scheduler
+	SchedulerName string
+	// Path of weight file
+	WeightFile string
+	//Epsilon
+	Epsilon		float32
 }
 
 // A Listener for incoming QUIC connections
