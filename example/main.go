@@ -19,6 +19,7 @@ import (
 
 	"github.com/lucas-clemente/quic-go/h2quic"
 	"github.com/lucas-clemente/quic-go/internal/utils"
+	"github.com/lucas-clemente/quic-go"
 )
 
 type binds []string
@@ -121,7 +122,29 @@ func main() {
 	certPath := flag.String("certpath", getBuildDir(), "certificate directory")
 	www := flag.String("www", "/var/www", "www data")
 	tcp := flag.Bool("tcp", false, "also listen on TCP")
+	scheduler := flag.String("scheduler", "rtt", "selects scheduler (random, rtt, dqnAgent, primary)")
+	wFile := flag.String("weightsFile", "", "(optional) file with agent weights and bias")
+	training := flag.Bool("training", false, "puts agent in trainning mode")
+	epsilon := flag.Float64("epsilon", 0., "epsilon value for e-greedy policy")
+	output := flag.String("outputpath", "", "Output path for DL agent")
+	specFile := flag.String("spec", "", "Spec file for DL agent")
+	valid_congestion := flag.Int("validCongestion", 0, "% of allowed congestion")
+	dumpExperiences := flag.Bool("validating", false, "If yes, server dumps experiences in /tmp")
+
 	flag.Parse()
+
+	if *scheduler != "dqnAgent" && *wFile != "" {
+		utils.Infof("Ignoring agent files as you selected scheduler %s", *scheduler)
+	}
+	if !*training && *epsilon != 0.{
+		utils.Infof("Agent is not in training mode. Ignoring epsilon argument")
+	}
+	// Init agents
+	if *training && *scheduler == "dqnAgent"{
+		quic.GetTrainingAgent(*wFile, *specFile, *output, *epsilon)
+	}else if *scheduler == "dqnAgent"{
+		quic.GetAgent(*wFile, *specFile)
+	}
 
 	if *verbose {
 		utils.SetLogLevel(utils.LogLevelDebug)
@@ -148,7 +171,8 @@ func main() {
 			if *tcp {
 				err = h2quic.ListenAndServe(bCap, certFile, keyFile, nil)
 			} else {
-				err = h2quic.ListenAndServeQUIC(bCap, certFile, keyFile, nil)
+				err = h2quic.ListenAndServeQUIC(bCap, certFile, keyFile, nil, *scheduler, *wFile, *training, *epsilon,
+					*valid_congestion, *dumpExperiences)
 			}
 			if err != nil {
 				fmt.Println(err)

@@ -7,16 +7,58 @@ import (
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/lucas-clemente/quic-go/internal/wire"
+	"math/rand"
+
+	"bitbucket.com/marcmolla/gorl/agents"
+	"bitbucket.com/marcmolla/gorl/types"
+	"fmt"
 )
 
 type scheduler struct {
 	// XXX Currently round-robin based, inspired from MPTCP scheduler
 	quotas map[protocol.PathID]uint
+	// Selected scheduler
+	SchedulerName string
+	// Is training?
+	Training bool
+	// Training Agent
+	TrainingAgent agents.TrainingAgent
+	// Normal Agent
+	Agent agents.Agent
+
+	// Cached state for training
+	cachedState		types.Vector
+	cachedPathID	protocol.PathID
+
+	AllowedCongestion int
+
+	// Retrans cache
+	retrans				map[protocol.PathID] uint64
+
+	// Write experiences
+	DumpExp				bool
+	DumpPath			string
+	dumpAgent			experienceAgent
 }
 
 func (sch *scheduler) setup() {
 	sch.quotas = make(map[protocol.PathID]uint)
+	sch.retrans = make(map[protocol.PathID]uint64)
+
+	//TODO: expose to config
+	sch.DumpPath = "/tmp/"
+	sch.dumpAgent.Setup()
+
+	sch.cachedState = types.Vector{-1, -1}
+	if sch.SchedulerName == "dqnAgent" {
+		if sch.Training {
+			sch.TrainingAgent = GetTrainingAgent("", "", "", 0.)
+		} else {
+			sch.Agent = GetAgent("", "")
+		}
+	}
 }
+
 
 func (sch *scheduler) getRetransmission(s *session) (hasRetransmission bool, retransmitPacket *ackhandler.Packet, pth *path) {
 	// check for retransmissions first
@@ -125,11 +167,16 @@ pathLoop:
 }
 
 func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	utils.Debugf("selectPathLowLatency")
 	// XXX Avoid using PathID 0 if there is more than 1 path
 	if len(s.paths) <= 1 {
 		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
+			utils.Debugf("Only initial path and sending not allowed without retransmission")
+			utils.Debugf("SCH RTT - NIL")
 			return nil
 		}
+		utils.Debugf("Only initial path and sending is allowed or has retransmission")
+		utils.Debugf("SCH RTT - InitialPath")
 		return s.paths[protocol.InitialPathID]
 	}
 
@@ -143,6 +190,8 @@ func (sch *scheduler) selectPathLowLatency(s *session, hasRetransmission bool, h
 			}
 			// The congestion window was checked when duplicating the packet
 			if sch.quotas[pathID] < currentQuota {
+				utils.Debugf("has ret, has stream ret and sRTT == 0")
+				utils.Debugf("SCH RTT - Selecting %d by low quota", pathID)
 				return pth
 			}
 		}
@@ -157,11 +206,13 @@ pathLoop:
 	for pathID, pth := range s.paths {
 		// Don't block path usage if we retransmit, even on another path
 		if !hasRetransmission && !pth.SendingAllowed() {
+			utils.Debugf("Discarding %d - no has ret and sending is not allowed ", pathID)
 			continue pathLoop
 		}
 
 		// If this path is potentially failed, do not consider it for sending
 		if pth.potentiallyFailed.Get() {
+			utils.Debugf("Discarding %d - potentially failed", pathID)
 			continue pathLoop
 		}
 
@@ -175,6 +226,7 @@ pathLoop:
 		// Prefer staying single-path if not blocked by current path
 		// Don't consider this sample if the smoothed RTT is 0
 		if lowerRTT != 0 && currentRTT == 0 {
+			utils.Debugf("Discarding %d - currentRTT == 0 and lowerRTT != 0 ", pathID)
 			continue pathLoop
 		}
 
@@ -187,11 +239,13 @@ pathLoop:
 			}
 			lowerQuota, _ := sch.quotas[selectedPathID]
 			if selectedPath != nil && currentQuota > lowerQuota {
+				utils.Debugf("Discarding %d - higher quota ", pathID)
 				continue pathLoop
 			}
 		}
 
 		if currentRTT != 0 && lowerRTT != 0 && selectedPath != nil && currentRTT >= lowerRTT {
+			utils.Debugf("Discarding %d - higher SRTT ", pathID)
 			continue pathLoop
 		}
 
@@ -200,15 +254,124 @@ pathLoop:
 		selectedPath = pth
 		selectedPathID = pathID
 	}
-
+	utils.Debugf("SCH RTT - Selecting %d by low RTT: %f", selectedPathID, lowerRTT)
 	return selectedPath
+}
+
+func (sch *scheduler) selectPathRandom(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	// XXX Avoid using PathID 0 if there is more than 1 path
+	if len(s.paths) <= 1 {
+		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
+			return nil
+		}
+		return s.paths[protocol.InitialPathID]
+	}
+	var availablePaths []protocol.PathID
+
+	for pathID, pth := range s.paths{
+		cong := float32(pth.sentPacketHandler.GetCongestionWindow())-float32(pth.sentPacketHandler.GetBytesInFlight())
+		allowed := pth.SendingAllowed() || (cong <= 0 && float32(cong) >=  -float32(pth.sentPacketHandler.GetCongestionWindow()) * float32(sch.AllowedCongestion) * 0.01)
+
+		if pathID != protocol.InitialPathID && (allowed || hasRetransmission){
+		//if pathID != protocol.InitialPathID && (pth.SendingAllowed() || hasRetransmission){
+			availablePaths = append(availablePaths, pathID)
+		}
+	}
+
+	if len(availablePaths) == 0 {
+		return nil
+	}
+
+	pathID := rand.Intn(len(availablePaths))
+	utils.Debugf("Selecting path %d", pathID)
+	return s.paths[availablePaths[pathID]]
+}
+
+func (sch *scheduler) selectFirstPath(s * session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	if len(s.paths) <= 1 {
+		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
+			return nil
+		}
+		return s.paths[protocol.InitialPathID]
+	}
+	for pathID, pth := range s.paths {
+		if pathID == protocol.PathID(1) && pth.SendingAllowed(){
+			return pth
+		}
+	}
+
+	return nil
+}
+
+func (sch *scheduler) selectPathDQNAgent(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
+	// XXX Avoid using PathID 0 if there is more than 1 path
+	if len(s.paths) <= 1 {
+		if !hasRetransmission && !s.paths[protocol.InitialPathID].SendingAllowed() {
+			return nil
+		}
+		return s.paths[protocol.InitialPathID]
+	}
+
+	if len(s.paths) == 2{
+		for pathID, path := range s.paths{
+			if pathID!=protocol.InitialPathID{
+				utils.Debugf("Selecting path %d as unique path", pathID)
+				return path
+			}
+		}
+	}
+
+	//Check for available paths
+	var availablePaths  []protocol.PathID
+	for pathID, path := range s.paths{
+		if path.sentPacketHandler.SendingAllowed() && pathID != protocol.InitialPathID{
+			availablePaths = append(availablePaths, pathID)
+		}
+	}
+
+	if len(availablePaths) == 0{
+		if s.paths[protocol.InitialPathID].SendingAllowed() || hasRetransmission{
+			return s.paths[protocol.InitialPathID]
+	  }else{
+	  	return nil
+		}
+	}else if len(availablePaths) == 1{
+		return s.paths[availablePaths[0]]
+	}
+
+	var action int
+
+	state, partialReward, paths := GetStateAndReward(sch, s)
+	if sch.Training{
+		action = sch.TrainingAgent.GetAction(state)
+		sch.TrainingAgent.SaveStep(uint64(s.connectionID),partialReward, state, action)
+		//CheckAction(action, state, s, sch)
+	}else{
+		action = sch.Agent.GetAction(state)
+		if sch.DumpExp{
+			sch.dumpAgent.AddStep(uint64(s.connectionID), []string{fmt.Sprint(state), fmt.Sprint(action)})
+		}
+	}
+
+
+	return paths[action]
 }
 
 // Lock of s.paths must be held
 func (sch *scheduler) selectPath(s *session, hasRetransmission bool, hasStreamRetransmission bool, fromPth *path) *path {
 	// XXX Currently round-robin
-	// TODO select the right scheduler dynamically
-	return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	if sch.SchedulerName == "rtt" {
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}else if sch.SchedulerName == "random"{
+		return sch.selectPathRandom(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}else if sch.SchedulerName == "dqnAgent" {
+		return sch.selectPathDQNAgent(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}else if sch.SchedulerName == "primary" {
+		return sch.selectFirstPath(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}else{
+		// Default, rtt
+		return sch.selectPathLowLatency(s, hasRetransmission, hasStreamRetransmission, fromPth)
+	}
 	// return sch.selectPathRoundRobin(s, hasRetransmission, hasStreamRetransmission, fromPth)
 }
 
@@ -234,6 +397,8 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 	// Packet sent, so update its quota
 	sch.quotas[pth.pathID]++
 
+	sRTT := make(map[protocol.PathID]time.Duration)
+
 	// Provide some logging if it is the last packet
 	for _, frame := range packet.frames {
 		switch frame := frame.(type) {
@@ -246,6 +411,26 @@ func (sch *scheduler) performPacketSending(s *session, windowUpdateFrames []*wir
 					sntPkts, sntRetrans, sntLost := pth.sentPacketHandler.GetStatistics()
 					rcvPkts := pth.receivedPacketHandler.GetStatistics()
 					utils.Infof("Path %x: sent %d retrans %d lost %d; rcv %d rtt %v", pathID, sntPkts, sntRetrans, sntLost, rcvPkts, pth.rttStats.SmoothedRTT())
+					// TODO: Remove it
+					utils.Infof("Congestion Window: %d", pth.sentPacketHandler.GetCongestionWindow())
+					if sch.Training{
+						sRTT[pathID] = pth.rttStats.SmoothedRTT()
+					}
+				}
+				if sch.Training && sch.SchedulerName == "dqnAgent"{
+					duration := time.Since(s.sessionCreationTime)
+					var maxRTT time.Duration
+					for pathID := range sRTT{
+						if sRTT[pathID] > maxRTT{
+							maxRTT = sRTT[pathID]
+						}
+					}
+					sch.TrainingAgent.CloseEpisode(uint64(s.connectionID), RewardFinalGoodput(duration, maxRTT), false)
+				}
+				utils.Infof("Dump: %t, Training:%t, scheduler:%s", sch.DumpExp, sch.Training, sch.SchedulerName)
+				if sch.DumpExp && !sch.Training && sch.SchedulerName == "dqnAgent"{
+					utils.Infof("Closing episode %d", uint64(s.connectionID))
+					sch.dumpAgent.CloseExperience(uint64(s.connectionID))
 				}
 				s.pathsLock.RUnlock()
 			}
@@ -392,6 +577,12 @@ func (sch *scheduler) sendPacket(s *session) error {
 
 		pkt, sent, err := sch.performPacketSending(s, windowUpdateFrames, pth)
 		if err != nil {
+			if err == ackhandler.ErrTooManyTrackedSentPackets{
+				utils.Errorf("Closing episode")
+				if sch.SchedulerName == "dqnAgent" && sch.Training{
+					sch.TrainingAgent.CloseEpisode(uint64(s.connectionID), -100, false)
+				}
+			}
 			return err
 		}
 		windowUpdateFrames = nil

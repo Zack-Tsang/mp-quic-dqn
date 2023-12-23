@@ -85,6 +85,9 @@ type sentPacketHandler struct {
 	packets         uint64
 	retransmissions uint64
 	losses          uint64
+
+	ackedBytes			protocol.ByteCount
+	sentBytes				protocol.ByteCount
 }
 
 // NewSentPacketHandler creates a new sentPacketHandler
@@ -159,6 +162,7 @@ func (h *sentPacketHandler) SentPacket(packet *Packet) error {
 	if isRetransmittable {
 		packet.SendTime = now
 		h.bytesInFlight += packet.Length
+		h.sentBytes += packet.Length
 		h.packetHistory.PushBack(*packet)
 		h.numNonRetransmittablePackets = 0
 	} else {
@@ -478,11 +482,28 @@ func (h *sentPacketHandler) GetAlarmTimeout() time.Time {
 	return h.alarm
 }
 
+func (h *sentPacketHandler) GetAckedBytes() protocol.ByteCount {
+	return h.ackedBytes
+}
+
+func (h *sentPacketHandler) GetSentBytes() protocol.ByteCount {
+	return h.sentBytes
+}
+
+func (h *sentPacketHandler) GetCongestionWindow() protocol.ByteCount{
+	return h.congestion.GetCongestionWindow()
+}
+
+func (h *sentPacketHandler) GetBytesInFlight() protocol.ByteCount {
+	return h.bytesInFlight
+}
+
 func (h *sentPacketHandler) onPacketAcked(packetElement *PacketElement) {
 	h.bytesInFlight -= packetElement.Value.Length
 	h.rtoCount = 0
 	h.tlpCount = 0
 	h.packetHistory.Remove(packetElement)
+	h.ackedBytes += packetElement.Value.Length
 }
 
 func (h *sentPacketHandler) DequeuePacketForRetransmission() *Packet {
@@ -514,11 +535,15 @@ func (h *sentPacketHandler) SendingAllowed() bool {
 		utils.Debugf("Congestion limited: bytes in flight %d, window %d",
 			h.bytesInFlight,
 			h.congestion.GetCongestionWindow())
+	}else if maxTrackedLimited{
+		utils.Debugf("Max tracked limited: %d",
+			protocol.PacketNumber(len(h.retransmissionQueue)+h.packetHistory.Len()))
 	}
 	// Workaround for #555:
 	// Always allow sending of retransmissions. This should probably be limited
 	// to RTOs, but we currently don't have a nice way of distinguishing them.
 	haveRetransmissions := len(h.retransmissionQueue) > 0
+	//utils.Debugf("Is Allowed?: %t, max: %t, cong: %t, haveR: %t", !maxTrackedLimited && (!congestionLimited || haveRetransmissions), maxTrackedLimited, congestionLimited, haveRetransmissions)
 	return !maxTrackedLimited && (!congestionLimited || haveRetransmissions)
 }
 
